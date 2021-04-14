@@ -371,7 +371,12 @@ namespace Ogre
                                                size_t srcLength )
     {
         //Metal has alignment restrictions of 4 bytes for offset and size in copyFromBuffer
-        size_t freeRegionOffset = getFreeDownloadRegion( alignToNextMultiple( srcLength, 4u ) );
+        //Extend range so that both are multiple of 4, then add extra offset
+        //to the return value so it gets correctly mapped in _mapForRead.
+        size_t extraOffset = srcOffset & 0x03;
+        srcOffset -= extraOffset;
+        size_t srcLengthPadded = alignToNextMultiple( extraOffset + srcLength, 4u );
+        size_t freeRegionOffset = getFreeDownloadRegion( srcLengthPadded );
 
         if( freeRegionOffset == (size_t)(-1) )
         {
@@ -384,16 +389,7 @@ namespace Ogre
 
         assert( !mUploadOnly );
         assert( dynamic_cast<MetalBufferInterface*>( source->getBufferInterface() ) );
-        assert( (srcOffset + srcLength) <= source->getTotalSizeBytes() );
-
-        size_t extraOffset = 0;
-        if( srcOffset & 0x03 )
-        {
-            //Not multiple of 4. Backtrack to make it multiple of 4, then add this value
-            //to the return value so it gets correctly mapped in _mapForRead.
-            extraOffset = srcOffset & 0x03;
-            srcOffset -= extraOffset;
-        }
+        assert( (srcOffset + srcLengthPadded) <= source->getTotalSizeBytes() );
 
         MetalBufferInterface *bufferInterface = static_cast<MetalBufferInterface*>(
                                                             source->getBufferInterface() );
@@ -404,7 +400,7 @@ namespace Ogre
                                         source->getBytesPerElement() + srcOffset
                                     toBuffer:mVboName
                                     destinationOffset:mInternalBufferStart + freeRegionOffset
-                                    size:alignToNextMultiple( srcLength, 4u )];
+                                    size:srcLengthPadded];
 #if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS
         assert( mVboName.storageMode != MTLStorageModeManaged );
         //[blitEncoder synchronizeResource:mVboName];
@@ -445,7 +441,12 @@ namespace Ogre
                                                  size_t srcOffset, size_t srcLength )
     {
         //Metal has alignment restrictions of 4 bytes for offset and size in copyFromBuffer
-        size_t freeRegionOffset = getFreeDownloadRegion( alignToNextMultiple( srcLength, 4u ) );
+        //Extend range so that both are multiple of 4, then add extra offset
+        //to the return value so it gets correctly mapped in _mapForRead.
+        size_t extraOffset = srcOffset & 0x03;
+        srcOffset -= extraOffset;
+        size_t srcLengthPadded = alignToNextMultiple( extraOffset + srcLength, 4u );
+        size_t freeRegionOffset = getFreeDownloadRegion( srcLengthPadded );
 
         if( freeRegionOffset == (size_t)(-1) )
         {
@@ -457,16 +458,7 @@ namespace Ogre
         }
 
         assert( !mUploadOnly );
-        assert( (srcOffset + srcLength) <= source->getSizeBytes() );
-
-        size_t extraOffset = 0;
-        if( srcOffset & 0x03 )
-        {
-            //Not multiple of 4. Backtrack to make it multiple of 4, then add this value
-            //to the return value so it gets correctly mapped in _mapForRead.
-            extraOffset = srcOffset & 0x03;
-            srcOffset -= extraOffset;
-        }
+        assert( (srcOffset + srcLengthPadded) <= source->getSizeBytes() );
 
         size_t srcOffsetStart = 0;
         __unsafe_unretained id<MTLBuffer> srcBuffer = source->getBufferName( srcOffsetStart );
@@ -476,7 +468,7 @@ namespace Ogre
                                     sourceOffset:srcOffset + srcOffsetStart
                                     toBuffer:mVboName
                                     destinationOffset:mInternalBufferStart + freeRegionOffset
-                                    size:alignToNextMultiple( srcLength, 4u )];
+                                    size:srcLengthPadded];
 #if OGRE_PLATFORM != OGRE_PLATFORM_APPLE_IOS
         assert( mVboName.storageMode != MTLStorageModeManaged );
         //[blitEncoder synchronizeResource:mVboName];
